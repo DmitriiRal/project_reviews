@@ -33,6 +33,7 @@ object RequestHandler extends App {
               complete(
                 HttpResponse(
 //                  headers = Seq(headers.`Content-Type`(ContentTypes.`application/json`)),
+                  headers = Seq(headers.`Access-Control-Allow-Origin`.*),
                   entity =
                     HttpEntity(
                       ContentTypes.`application/json`,

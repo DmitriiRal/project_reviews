@@ -1,5 +1,6 @@
 import com.raquo.laminar.api.L.*
 import org.scalajs.dom
+import org.scalajs.dom.RequestMode
 object App {
 
   val gameId: Var[String] = Var("")
