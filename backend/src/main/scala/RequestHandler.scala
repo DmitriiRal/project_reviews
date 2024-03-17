@@ -6,7 +6,7 @@ import pekko.actor.typed.scaladsl.Behaviors
 import pekko.http.scaladsl.Http
 import pekko.http.scaladsl.model._
 import pekko.http.scaladsl.server.Directives._
-import spray.json.DefaultJsonProtocol.{IntJsonFormat, JsValueFormat, StringJsonFormat, listFormat, mapFormat}
+import spray.json.DefaultJsonProtocol.{IntJsonFormat, JsValueFormat, StringJsonFormat, jsonFormat3, mapFormat}
 
 import scala.io.StdIn
 import scala.util.{Failure, Success}
@@ -18,6 +18,7 @@ object RequestHandler extends App {
   implicit val system = ActorSystem(Behaviors.empty, "my-system")
   // needed for the future flatMap/onComplete in the end
   implicit val executionContext = system.executionContext
+  implicit val GameInfoFormat: RootJsonFormat[GameInfo] = jsonFormat3(GameInfo)
 
   val route = concat(
     get {
@@ -37,11 +38,12 @@ object RequestHandler extends App {
                   entity =
                     HttpEntity(
                       ContentTypes.`application/json`,
-                      JsObject(
-                        "game_id" -> JsNumber(result.id),
-                        "game_name" -> JsString(result.name),
-                        "description" -> JsString(result.description)
-                      ).prettyPrint
+                      result.toJson.prettyPrint
+//                      JsObject(
+//                        "game_id" -> JsNumber(result.id),
+//                        "game_name" -> JsString(result.name),
+//                        "description" -> JsString(result.description)
+//                      ).prettyPrint
                     )
                 )
               )
@@ -51,7 +53,19 @@ object RequestHandler extends App {
             complete(StatusCodes.Conflict)
         }
       }
-    }
+    }//,
+//    get {
+//      path("games") {
+//        parameters("searchString") { (string) =>
+//          onComplete(getGame(id1.toInt)) {
+//            case Success(res) =>
+//              complete(s"Found a game $res")
+//            case Failure(res2) =>
+//              complete((StatusCodes.Conflict, s"An error occurred: $res2"))
+//          }
+//        }
+//      }
+//    }
 
 
     //                StatusCodes.OK,
