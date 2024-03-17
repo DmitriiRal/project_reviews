@@ -1,4 +1,4 @@
-import DataBaseRw.{gamesQuery, getGame}
+import DataBaseRw.{gamesQuery, getGame, getTopFiveGames}
 import GamesController.getGameById
 import org.apache.pekko
 import pekko.actor.typed.ActorSystem
@@ -53,19 +53,19 @@ object RequestHandler extends App {
             complete(StatusCodes.Conflict)
         }
       }
-    }//,
-//    get {
-//      path("games") {
-//        parameters("searchString") { (string) =>
-//          onComplete(getGame(id1.toInt)) {
-//            case Success(res) =>
-//              complete(s"Found a game $res")
-//            case Failure(res2) =>
-//              complete((StatusCodes.Conflict, s"An error occurred: $res2"))
-//          }
-//        }
-//      }
-//    }
+    },
+    get {
+      path("games") {
+        parameters("searchString") { (string) =>
+          onComplete(getTopFiveGames(string)) {
+            case Success(res) =>
+              complete(s"Found games $res")
+            case Failure(res2) =>
+              complete((StatusCodes.Conflict, s"An error occurred: $res2"))
+          }
+        }
+      }
+    }
 
 
     //                StatusCodes.OK,
