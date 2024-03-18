@@ -6,7 +6,7 @@ import pekko.actor.typed.scaladsl.Behaviors
 import pekko.http.scaladsl.Http
 import pekko.http.scaladsl.model._
 import pekko.http.scaladsl.server.Directives._
-import spray.json.DefaultJsonProtocol.{IntJsonFormat, JsValueFormat, StringJsonFormat, jsonFormat3, mapFormat}
+import spray.json.DefaultJsonProtocol.{IntJsonFormat, JsValueFormat, LongJsonFormat, StringJsonFormat, immSeqFormat, jsonFormat3, mapFormat}
 
 import scala.io.StdIn
 import scala.util.{Failure, Success}
@@ -19,6 +19,7 @@ object RequestHandler extends App {
   // needed for the future flatMap/onComplete in the end
   implicit val executionContext = system.executionContext
   implicit val GameInfoFormat: RootJsonFormat[GameInfo] = jsonFormat3(GameInfo)
+  implicit val GameInfoFormat2: RootJsonFormat[DataBaseRw.Games] = jsonFormat3(DataBaseRw.Games)
 
   val route = concat(
     get {
@@ -59,7 +60,16 @@ object RequestHandler extends App {
         parameters("searchString") { (string) =>
           onComplete(getTopFiveGames(string)) {
             case Success(res) =>
-              complete(s"Found games $res")
+              complete(
+                HttpResponse(
+                  headers = Seq(headers.`Access-Control-Allow-Origin`.*),
+                  entity =
+                    HttpEntity(
+                      ContentTypes.`application/json`,
+                      res.map(_.toJson).toJson.prettyPrint
+                    )
+                )
+              )
             case Failure(res2) =>
               complete((StatusCodes.Conflict, s"An error occurred: $res2"))
           }
