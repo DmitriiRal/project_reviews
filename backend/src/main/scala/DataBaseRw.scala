@@ -70,8 +70,8 @@ object DataBaseRw {
     run
   }
 
-  def getTopFiveGames(game: String): Future[Seq[Games]] = {
-    val query = gamesQuery.filter(w => w.name.like(s"$game%")).take(5).result
+  def getTopFive(game: String): Future[Seq[Games]] = {
+    val query = gamesQuery.filter(w => w.name.like(s"$game%")).take(20).result
     val run = Connection.db.run(query)
     run
   }

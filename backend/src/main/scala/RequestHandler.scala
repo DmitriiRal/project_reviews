@@ -1,13 +1,15 @@
-import DataBaseRw.{gamesQuery, getGame, getTopFiveGames}
-import GamesController.getGameById
+import DataBaseRw.{gamesQuery, getGame}
+import GamesController.{GameInfo, getGameById, getSmallPicture, getTopFiveGames}
+import RequestHandler.GameInfoFormat3
 import org.apache.pekko
 import pekko.actor.typed.ActorSystem
 import pekko.actor.typed.scaladsl.Behaviors
 import pekko.http.scaladsl.Http
 import pekko.http.scaladsl.model._
 import pekko.http.scaladsl.server.Directives._
-import spray.json.DefaultJsonProtocol.{IntJsonFormat, JsValueFormat, LongJsonFormat, StringJsonFormat, immSeqFormat, jsonFormat3, mapFormat}
+import spray.json.DefaultJsonProtocol.{IntJsonFormat, JsValueFormat, LongJsonFormat, StringJsonFormat, immSeqFormat, jsonFormat3, jsonFormat4, jsonFormat5}
 
+import scala.concurrent.Future
 import scala.io.StdIn
 import scala.util.{Failure, Success}
 import spray.json._
@@ -18,8 +20,10 @@ object RequestHandler extends App {
   implicit val system = ActorSystem(Behaviors.empty, "my-system")
   // needed for the future flatMap/onComplete in the end
   implicit val executionContext = system.executionContext
-  implicit val GameInfoFormat: RootJsonFormat[GameInfo] = jsonFormat3(GameInfo)
+  implicit val GameInfoFormat: RootJsonFormat[GameInfo] = jsonFormat5(GameInfo)
   implicit val GameInfoFormat2: RootJsonFormat[DataBaseRw.Games] = jsonFormat3(DataBaseRw.Games)
+  implicit val GameInfoFormat3: RootJsonFormat[GamesController.GetTop] = jsonFormat4(GamesController.GetTop)
+
 
   val route = concat(
     get {
@@ -60,13 +64,15 @@ object RequestHandler extends App {
         parameters("searchString") { (string) =>
           onComplete(getTopFiveGames(string)) {
             case Success(res) =>
+//              val steamId = res.map(x => x.steamId).head
+//              val pictureLink = onSuccess(getSmallPicture(res.map(x => x.steamId).head)) {x => x}
               complete(
                 HttpResponse(
                   headers = Seq(headers.`Access-Control-Allow-Origin`.*),
                   entity =
                     HttpEntity(
                       ContentTypes.`application/json`,
-                      res.map(_.toJson).toJson.prettyPrint
+                      res.toJson.prettyPrint
                     )
                 )
               )
@@ -76,7 +82,6 @@ object RequestHandler extends App {
         }
       }
     }
-
 
     //                StatusCodes.OK,
     //                JsObject(
