@@ -1,0 +1,5 @@
+package Steam
+
+object SteamApi {
+
+}

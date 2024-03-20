@@ -1,15 +1,11 @@
-import DataBaseRw.{gamesQuery, getGame}
-import GamesController.{GameInfo, getGameById, getSmallPicture, getTopFiveGames}
-import RequestHandler.GameInfoFormat3
+import GamesController.{getGameById, getTopFiveGames}
 import org.apache.pekko
 import pekko.actor.typed.ActorSystem
 import pekko.actor.typed.scaladsl.Behaviors
 import pekko.http.scaladsl.Http
 import pekko.http.scaladsl.model._
 import pekko.http.scaladsl.server.Directives._
-import spray.json.DefaultJsonProtocol.{IntJsonFormat, JsValueFormat, LongJsonFormat, StringJsonFormat, immSeqFormat, jsonFormat3, jsonFormat4, jsonFormat5}
-
-import scala.concurrent.Future
+import spray.json.DefaultJsonProtocol.{IntJsonFormat, LongJsonFormat, StringJsonFormat, immSeqFormat, jsonFormat3, jsonFormat4, jsonFormat5}
 import scala.io.StdIn
 import scala.util.{Failure, Success}
 import spray.json._
@@ -20,9 +16,9 @@ object RequestHandler extends App {
   implicit val system = ActorSystem(Behaviors.empty, "my-system")
   // needed for the future flatMap/onComplete in the end
   implicit val executionContext = system.executionContext
-  implicit val GameInfoFormat: RootJsonFormat[GameInfo] = jsonFormat5(GameInfo)
+  implicit val GameInfoFormat: RootJsonFormat[GameInfoOld] = jsonFormat5(GameInfoOld)
   implicit val GameInfoFormat2: RootJsonFormat[DataBaseRw.Games] = jsonFormat3(DataBaseRw.Games)
-  implicit val GameInfoFormat3: RootJsonFormat[GamesController.GetTop] = jsonFormat4(GamesController.GetTop)
+  implicit val GameInfoFormat3: RootJsonFormat[GetTop] = jsonFormat4(GetTop)
 
 
   val route = concat(
