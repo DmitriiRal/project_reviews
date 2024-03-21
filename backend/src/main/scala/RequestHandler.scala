@@ -17,7 +17,6 @@ object RequestHandler extends App {
   // needed for the future flatMap/onComplete in the end
   implicit val executionContext = system.executionContext
   implicit val GameInfoFormat: RootJsonFormat[GameInfoOld] = jsonFormat5(GameInfoOld)
-  implicit val GameInfoFormat2: RootJsonFormat[DataBaseRw.Games] = jsonFormat3(DataBaseRw.Games)
   implicit val GameInfoFormat3: RootJsonFormat[GetTop] = jsonFormat4(GetTop)
 
 
@@ -34,7 +33,6 @@ object RequestHandler extends App {
             case Some(result) =>
               complete(
                 HttpResponse(
-//                  headers = Seq(headers.`Content-Type`(ContentTypes.`application/json`)),
                   headers = Seq(headers.`Access-Control-Allow-Origin`.*),
                   entity =
                     HttpEntity(
@@ -60,8 +58,6 @@ object RequestHandler extends App {
         parameters("searchString") { (string) =>
           onComplete(getTopFiveGames(string)) {
             case Success(res) =>
-//              val steamId = res.map(x => x.steamId).head
-//              val pictureLink = onSuccess(getSmallPicture(res.map(x => x.steamId).head)) {x => x}
               complete(
                 HttpResponse(
                   headers = Seq(headers.`Access-Control-Allow-Origin`.*),
@@ -86,19 +82,6 @@ object RequestHandler extends App {
     //                  "description" -> JsString(result.description)
     //                ).prettyPrint
 
-
-//    get {
-//      path("games") {
-//        parameters("id1") { (id1) =>
-//          onComplete(getGame(id1.toInt)) {
-//            case Success(res) =>
-//              complete(s"Found a game $res")
-//            case Failure(res2) =>
-//              complete((StatusCodes.Conflict, s"An error occurred: $res2"))
-//          }
-//        }
-//      }
-//    }
 
 
 
