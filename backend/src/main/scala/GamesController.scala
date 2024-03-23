@@ -1,5 +1,6 @@
 import DataBaseRw.{executionContext, getGame, getTopFive, system}
-import Steam.SteamApi.getSteamGameData
+import Steam.GameInfo
+import Steam.SteamApi.{getSteamData, temporaryJsonParser}
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.HttpRequest
 
@@ -9,17 +10,18 @@ import spray.json._
 
 object GamesController extends App {
 
-  def getGameById(id: Int): Future[Option[GameInfoOld]] = {
+  def getGameById(id: Int): Future[Option[GameInfo]] = {
     getGame(id).flatMap {
-      case Some(value) =>
-        getSteamGameData(value.steamId).map(
-          x => x.getFields("name", "detailed_description", "header_image") match {
-            case Seq(JsString(name), JsString(description), JsString(picture)) =>
-              Some(GameInfoOld(name, id, description, picture,
-                s"https://store.steampowered.com/api/appdetails?appids=${value.steamId}"))
-            case _ => throw new Exception("Not found")
-          }
-        )
+      case Some(db) =>
+        getSteamData(db.steamId).map {
+          case Some(steamData) =>
+            Some(
+              GameInfo(
+                db.name, db.id, steamData.description, steamData.steamLink, steamData.headerPictureLink
+              )
+            )
+          case _ => None
+        }
       case None => Future.successful(None)
     }
   }
@@ -27,7 +29,7 @@ object GamesController extends App {
 
   def getSmallPicture(steamId: Long): Future[
     String] = {
-    getSteamGameData(steamId).map( x =>
+    temporaryJsonParser(steamId).map(x =>
       x.getFields("capsule_imagev5") match {
         case Seq(JsString(picture)) =>
           picture
