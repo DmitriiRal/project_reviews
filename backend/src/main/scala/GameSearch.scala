@@ -1,8 +1,6 @@
-package Steam
-
 case class GameSearch(
                        name: String,
-                       id: Long,
+                       idInDatabase: Long,
                        steamId: Long,
-                       gamePicture: String
+                       capsuleImageV5: String
                      )

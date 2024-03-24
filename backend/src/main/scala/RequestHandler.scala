@@ -1,5 +1,4 @@
 import GamesController.{getGameById, getTopFiveGames}
-import Steam.GameInfo
 import org.apache.pekko
 import pekko.actor.typed.ActorSystem
 import pekko.actor.typed.scaladsl.Behaviors

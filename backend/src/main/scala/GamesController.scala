@@ -1,6 +1,5 @@
 import DataBaseRw.{executionContext, getGame, getTopFive, system}
-import Steam.GameInfo
-import Steam.SteamApi.{getSteamData, temporaryJsonParser}
+import Steam.SteamApi.{getSteamAppDetails, temporaryJsonParser}
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.HttpRequest
 
@@ -13,22 +12,29 @@ object GamesController extends App {
   def getGameById(id: Int): Future[Option[GameInfo]] = {
     getGame(id).flatMap {
       case Some(db) =>
-        getSteamData(db.steamId).map {
+        getSteamAppDetails(db.steamId).map {
           case Some(steamData) =>
             Some(
               GameInfo(
-                db.name, db.id, steamData.description, steamData.steamLink, steamData.headerPictureLink
+                db.name,
+                db.id,
+                steamData.detailedDescription,
+                steamData.steamLink,
+                steamData.headerImage
               )
             )
           case _ => None
         }
       case None => Future.successful(None)
+    }.recover {
+      case e: Exception =>
+        println(e)
+        throw e
     }
   }
 
 
-  def getSmallPicture(steamId: Long): Future[
-    String] = {
+  def getSmallPicture(steamId: Long): Future[String] = {
     temporaryJsonParser(steamId).map(x =>
       x.getFields("capsule_imagev5") match {
         case Seq(JsString(picture)) =>
@@ -36,8 +42,6 @@ object GamesController extends App {
         case _ => throw new Exception("Not found")
       }
     )
-
-
   }
 
   // Future[Seq[Future[GetTop]]] -> Future[Future[Seq[GetTop]]]

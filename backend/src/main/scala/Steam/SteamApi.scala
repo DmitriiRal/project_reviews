@@ -10,23 +10,46 @@ import spray.json._
 
 object SteamApi {
 
+  def steamAppDetailFormat(steamId: Long): RootJsonFormat[Option[SteamAppDetails]] =
+    new RootJsonFormat[Option[SteamAppDetails]] {
+      def write(obj: Option[SteamAppDetails]): JsValue =
+        throw new Exception("Writing is impossible")
+      def read(value: JsValue): Option[SteamAppDetails] = {
+        val jsObject = value.asJsObject.fields(s"$steamId").asJsObject
+        jsObject.getFields("success") match {
+          case Seq(JsBoolean(true)) =>
+            jsObject.fields("data").asJsObject
+              .getFields("name", "detailed_description", "header_image") match {
+              case Seq(JsString(name), JsString(description), JsString(picture)) =>
+                Some(SteamAppDetails(name, description, picture, steamId,
+                  s"https://store.steampowered.com/api/appdetails?appids=$steamId"))
+              case _ => throw new Exception("Wrong fields")
+              }
+          case _ => None
+        }
+      }
+    }
+
   implicit val system: ActorSystem[Any] = ActorSystem(Behaviors.empty, "SingleRequest")
   implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
-  def getSteamData(steamId: Long): Future[Option[SteamData]] =
+  def getSteamAppDetails(steamId: Long): Future[Option[SteamAppDetails]] = {
     Http().singleRequest(HttpRequest(uri =
         s"https://store.steampowered.com/api/appdetails?appids=$steamId"))
       .flatMap(res => res.entity.toStrict(1000.millis))
       .map(x =>
-        x.data.utf8String.parseJson.asJsObject.fields(s"$steamId")
-          .asJsObject.fields("data").asJsObject
-          .getFields("name", "detailed_description", "header_image") match {
-          case Seq(JsString(name), JsString(description), JsString(picture)) =>
-            Some(SteamData(name, description, picture, steamId,
-              s"https://store.steampowered.com/api/appdetails?appids=$steamId"))
-          case _ => None
-        }
+        x.data.utf8String.parseJson.convertTo(steamAppDetailFormat(steamId))
       )
+  }
+
+
+//  def getSteamAppDetails2(steamId: Long): Future[Option[SteamAppDetail]] =
+//    Http().singleRequest(HttpRequest(uri =
+//        s"https://store.steampowered.com/api/appdetails?appids=$steamId"))
+//      .flatMap(res => res.entity.toStrict(1000.millis))
+//      .map(x =>
+//        x.data.utf8String.parseJson.convertTo
+//      )
 
 
   def temporaryJsonParser(steamId: Long) =
