@@ -20,13 +20,15 @@ object DataBaseRw {
   final case class Games(
                           id: Long,
                           name: String,
-                          steamId: Long
+                          steamId: Long,
+                          capsuleImageV5: String
                         )
   class GamesTable(tag: Tag) extends Table[Games](tag, Some("db_reviews"), "games") {
     def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
     def name = column[String]("name")
     def steamId = column[Long]("steam_id")
-    override def * = (id, name, steamId) <> (Games.tupled, Games.unapply)
+    def capsuleImageV5 = column[String]("capsule_imagev5")
+    override def * = (id, name, steamId, capsuleImageV5) <> (Games.tupled, Games.unapply)
   }
   val gamesQuery = TableQuery[GamesTable]
 
@@ -71,7 +73,7 @@ object DataBaseRw {
   }
 
   def getTopFive(game: String): Future[Seq[Games]] = {
-    val query = gamesQuery.filter(w => w.name.like(s"$game%")).take(20).result
+    val query = gamesQuery.filter(w => w.name.like(s"$game%")).take(5).result
     val run = Connection.db.run(query)
     run
   }

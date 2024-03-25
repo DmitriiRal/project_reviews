@@ -10,23 +10,19 @@ import spray.json._
 
 object SteamApi {
 
-  def steamAppDetailFormat(steamId: Long): RootJsonFormat[Option[SteamAppDetails]] =
-    new RootJsonFormat[Option[SteamAppDetails]] {
-      def write(obj: Option[SteamAppDetails]): JsValue =
-        throw new Exception("Writing is impossible")
-      def read(value: JsValue): Option[SteamAppDetails] = {
-        val jsObject = value.asJsObject.fields(s"$steamId").asJsObject
-        jsObject.getFields("success") match {
-          case Seq(JsBoolean(true)) =>
-            jsObject.fields("data").asJsObject
-              .getFields("name", "detailed_description", "header_image") match {
-              case Seq(JsString(name), JsString(description), JsString(picture)) =>
-                Some(SteamAppDetails(name, description, picture, steamId,
-                  s"https://store.steampowered.com/api/appdetails?appids=$steamId"))
-              case _ => throw new Exception("Wrong fields")
-              }
-          case _ => None
-        }
+  def steamAppDetailFormat(steamId: Long): RootJsonReader[Option[SteamAppDetails]] =
+    (value: JsValue) => {
+      val jsObject = value.asJsObject.fields(s"$steamId").asJsObject
+      jsObject.getFields("success") match {
+        case Seq(JsBoolean(true)) =>
+          jsObject.fields("data").asJsObject
+            .getFields("name", "detailed_description", "header_image") match {
+            case Seq(JsString(name), JsString(description), JsString(picture)) =>
+              Some(SteamAppDetails(name, description, picture, steamId,
+                s"https://store.steampowered.com/api/appdetails?appids=$steamId"))
+            case _ => throw new Exception("Wrong fields")
+          }
+        case _ => None
       }
     }
 
