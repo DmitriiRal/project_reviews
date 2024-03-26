@@ -5,7 +5,9 @@ import pekko.actor.typed.scaladsl.Behaviors
 import pekko.http.scaladsl.Http
 import pekko.http.scaladsl.model._
 import pekko.http.scaladsl.server.Directives._
-import spray.json.DefaultJsonProtocol.{IntJsonFormat, LongJsonFormat, StringJsonFormat, immSeqFormat, jsonFormat3, jsonFormat4, jsonFormat5}
+import spray.json.DefaultJsonProtocol.{
+  LongJsonFormat, StringJsonFormat, immSeqFormat, jsonFormat4, jsonFormat5
+}
 
 import scala.io.StdIn
 import scala.util.{Failure, Success}
@@ -15,7 +17,6 @@ import spray.json._
 object RequestHandler extends App {
 
   implicit val system = ActorSystem(Behaviors.empty, "my-system")
-  // needed for the future flatMap/onComplete in the end
   implicit val executionContext = system.executionContext
   implicit val GameInfoFormat: RootJsonFormat[GameInfo] = jsonFormat5(GameInfo)
   implicit val GameInfoFormat3: RootJsonFormat[GetTop] = jsonFormat4(GetTop)

@@ -41,16 +41,42 @@ object Scraper extends App {
     db.run(gamesQuery ++= x)
   }
 
+
   val addToDb2 = apps.flatMap { vector =>
     Future.sequence(
-      vector.map(oneApp => db.run(gamesQuery += oneApp))
+      vector.map(
+        oneApp => {
+          db.run(gamesQuery.filter(_.steamId === oneApp.steamId).result.headOption).flatMap {
+            case Some(res) =>
+              db.run(gamesQuery.filter(_.steamId === oneApp.steamId).map(_.name).update(oneApp.name))
+            case None =>
+              db.run(gamesQuery += oneApp)
+          }
+        }
+      )
     )
   }
 
 
-//  def updateAppDetails
+  addToDb2.onComplete {
+    case Success(res) =>
+      println(res)
+    case Failure(res) =>
+      println(res)
+  }
+}
 
-  addToDb.onComplete {
+
+
+
+
+object TestDb extends App {
+  implicit val system: ActorSystem[Any] = ActorSystem(Behaviors.empty, "SingleRequest")
+  implicit val executionContext: ExecutionContextExecutor = system.executionContext
+
+  val test = db.run(gamesQuery.filter(_.steamId === 19034806546L).result.headOption)
+
+  test.onComplete {
     case Success(res) =>
       println(res)
     case Failure(res) =>

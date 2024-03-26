@@ -9,7 +9,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 
-object TestDb extends App {
+object OldTestDb extends App {
 
   val db = Database.forConfig("h2mem1")
 //  try {
