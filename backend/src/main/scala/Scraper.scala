@@ -1,30 +1,35 @@
 import Connection.db
 import DataBaseRw.{Games, gamesQuery}
+import Steam.SteamApi.getSteamAppDetails
 import org.apache.pekko
 import pekko.actor.typed.ActorSystem
 import pekko.actor.typed.scaladsl.Behaviors
 import pekko.http.scaladsl.Http
 import pekko.http.scaladsl.model._
 import slick.jdbc.PostgresProfile.api._
+
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 import spray.json._
 
+import scala.annotation.tailrec
+
 
 object Scraper extends App {
 
-  implicit object GamesFormat extends RootJsonFormat[Vector[Games]] {
-    def read(json: JsValue): Vector[Games] =
+  case class SteamGame(appid: Long, name: String)
+
+  implicit object SteamGameFormat extends RootJsonReader[Vector[SteamGame]] {
+    def read(json: JsValue): Vector[SteamGame] =
       json.asJsObject.fields("applist").asJsObject.fields("apps") match {
       case JsArray(vector) => vector.map(_.asJsObject.getFields("appid", "name") match {
-          case Seq(JsNumber(number), JsString(string)) => Games(0, string, number.toLong, "")
+          case Seq(JsNumber(appId), JsString(name)) => SteamGame(appId.toLong, name)
           case _ => throw new Exception("Wrong formats")
         }
       )
       case _ => throw new Exception("Vector expected")
     }
-    def write(obj: Vector[Games]): JsValue = throw new Exception("Writing is impossible")
   }
 
 
@@ -35,26 +40,58 @@ object Scraper extends App {
     HttpRequest(uri = "https://api.steampowered.com/ISteamApps/GetAppList/v2/")
   )
   val timeout = 1000.millis
+
   val apps = getApps.flatMap(res => res.entity.toStrict(timeout))
-    .map(x => x.data.utf8String.parseJson.convertTo[Vector[Games]])
-  val addToDb = apps.flatMap { x =>
-    db.run(gamesQuery ++= x)
+    .map(x => x.data.utf8String.parseJson.convertTo[Vector[SteamGame]])
+
+//  val addToDb = apps.flatMap { x =>
+//    db.run(gamesQuery ++= x)
+//  }
+
+  val addToDb2 = apps.flatMap(processSeq1)
+
+  def processSeq1(vector: Vector[SteamGame]): Future[Int] = {
+    def inner(acc: Int, tail: Vector[SteamGame]): Future[Int] = tail match {
+      case Vector() => Future.successful(acc)
+      case head +: tail => processItem(head).flatMap(_ => inner(acc + 1, tail))
+    }
+
+    inner(0, vector)
   }
 
+  def processSeq2(vector: Vector[SteamGame]): Future[Int] = vector match {
+    case head +: tail => processItem(head).flatMap(_ => processSeq2(tail))
+  }
 
-  val addToDb2 = apps.flatMap { vector =>
-    Future.sequence(
-      vector.map(
-        oneApp => {
-          db.run(gamesQuery.filter(_.steamId === oneApp.steamId).result.headOption).flatMap {
-            case Some(res) =>
-              db.run(gamesQuery.filter(_.steamId === oneApp.steamId).map(_.name).update(oneApp.name))
-            case None =>
-              db.run(gamesQuery += oneApp)
-          }
+  def processItem(steamGame: SteamGame): Future[Int] = {
+    println(s"Processing steam game(${steamGame.appid}) ${steamGame.name}")
+    db.run(gamesQuery.filter(_.steamId === steamGame.appid).result.headOption).flatMap {
+      case Some(_) =>
+        println(s"Found a game, updating")
+        db.run(gamesQuery.filter(_.steamId === steamGame.appid).map(_.name).update(steamGame.name))
+      case None =>
+        println(s"Not found, creating")
+        getSteamAppDetails(steamGame.appid).flatMap {
+          case Some(response) =>
+          db.run(
+            gamesQuery += Games(
+              id = 0L,
+              name = steamGame.name,
+              steamId = steamGame.appid,
+              capsuleImageV5 = response.headerImage
+            )
+          )
+          case None =>
+            db.run(
+              gamesQuery += Games(
+                id = 0L,
+                name = steamGame.name,
+                steamId = steamGame.appid,
+                capsuleImageV5 = "empty"
+              )
+            )
         }
-      )
-    )
+    }
   }
 
 
