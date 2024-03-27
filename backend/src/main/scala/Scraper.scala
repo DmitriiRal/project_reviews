@@ -68,7 +68,7 @@ object Scraper extends App {
     db.run(gamesQuery.filter(_.steamId === steamGame.appid).result.headOption).flatMap {
       case Some(_) =>
         println(s"Found a game, updating")
-        db.run(gamesQuery.filter(_.steamId === steamGame.appid).map(_.name).update(steamGame.name))
+        Future.successful(1)
       case None =>
         println(s"Not found, creating")
         getSteamAppDetails(steamGame.appid).flatMap {
@@ -81,15 +81,7 @@ object Scraper extends App {
               capsuleImageV5 = response.headerImage
             )
           )
-          case None =>
-            db.run(
-              gamesQuery += Games(
-                id = 0L,
-                name = steamGame.name,
-                steamId = steamGame.appid,
-                capsuleImageV5 = "empty"
-              )
-            )
+          case None => Future.successful(1)
         }
     }
   }
