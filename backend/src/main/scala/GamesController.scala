@@ -29,6 +29,8 @@ object GamesController extends App {
     }
   }
 
+  def searchGames: Future[Seq[GameInfo]] = ???
+
 //  def searchGames(game: String, offset: Int, limit: Int) =
 
 }
