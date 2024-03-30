@@ -1,5 +1,4 @@
 import slick.jdbc.PostgresProfile.api._
-import scala.util.{Failure, Success}
 import java.time.LocalDate
 import org.apache.pekko
 import pekko.actor.typed.ActorSystem
@@ -72,55 +71,21 @@ object DataBaseRw {
     run
   }
 
-  def getTopFive(game: String): Future[Seq[Games]] = {
-    val query = gamesQuery.filter(w => w.name.like(s"$game%")).take(5).result
-    val run = Connection.db.run(query)
-    run
+  def getTenGames(game: String): Future[Seq[Games]] = {
+    val query = gamesQuery.filter(w => w.name.like(s"$game%")).take(10).result
+    Connection.db.run(query)
+  }
+
+  def getGames2(game: String, offset: Int, limit: Int): Future[Seq[Games]] = {
+    val query = gamesQuery.filter(w => w.name.like(s"$game%")).drop(offset).take(limit).result
+    Connection.db.run(query)
+  }
+
+  def getGames(game: String, offset: Int, limit: Int): Future[PaginatedResult[GamesTable#TableElementType]] = Connection.db.run {
+    for {
+      gameList <- gamesQuery.filter(_.name.like(s"$game%")).drop(offset).take(limit).result
+      numberOfGamesFound <- gamesQuery.filter(_.name.like(s"$game%")).length.result
+    } yield PaginatedResult(gameList, numberOfGamesFound)
   }
 
 }
-
-//  val query = gamesQuery.filter(w => w.id === 88.toLong).result
-//  val run = Connection.db.run(query)
-//  getGame(88).onComplete {
-//    case Success(res) =>
-//      println(res)
-//    case Failure(res) =>
-//      println(res)
-//  }
-
-//  val query = gamesQuery.filter(w => w.id === 88L).result
-//  val run2 = Connection.db.run(query)
-
-//  run2.onComplete {
-//    case Success(res) =>
-//      println(res)
-//    case Failure(res) =>
-//      println(res)
-//  }
-
-
-//  val addGame = gamesQuery ++= Vector(Games(0, "Deep Rock Galactic", 10), Games(0, "Deep Rock Galactic", 10))
-//  val query = gamesQuery.filter(w => w.id === 0L).result
-//  val run = addGame.flatMap(_ => query)
-
-
-//  try {
-//    // val resultFuture: Future[_] = { ... }
-//    val n = Await.result(db.run(run), Duration.Inf)
-//    println(n)
-//  } finally db.close
-
-//  val plainQuery = sql"select name from db_reviews.games".as[String]
-
-
-//  val q = for (c <- coffees) yield c.name
-//  val a = q.result
-//  val f: Future[Seq[String]] = db.run(a)
-//  f.onComplete {
-//    case Success(s) =>
-//      println(s"Result: $s")
-//    case Failure(t) =>
-//      t.printStackTrace()
-//  }
-

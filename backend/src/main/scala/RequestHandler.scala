@@ -1,13 +1,12 @@
-import GamesController.{getGameById, getTopFiveGames}
+import DataBaseRw.{Games, GamesTable, getGames}
+import GamesController.getGameById
 import org.apache.pekko
 import pekko.actor.typed.ActorSystem
 import pekko.actor.typed.scaladsl.Behaviors
 import pekko.http.scaladsl.Http
 import pekko.http.scaladsl.model._
 import pekko.http.scaladsl.server.Directives._
-import spray.json.DefaultJsonProtocol.{
-  LongJsonFormat, StringJsonFormat, immSeqFormat, jsonFormat4, jsonFormat5
-}
+import spray.json.DefaultJsonProtocol._
 
 import scala.io.StdIn
 import scala.util.{Failure, Success}
@@ -18,8 +17,14 @@ object RequestHandler extends App {
 
   implicit val system = ActorSystem(Behaviors.empty, "my-system")
   implicit val executionContext = system.executionContext
-  implicit val GameInfoFormat: RootJsonFormat[GameInfo] = jsonFormat5(GameInfo)
-  implicit val GameInfoFormat3: RootJsonFormat[GetTop] = jsonFormat4(GetTop)
+  implicit val gameInfoFormat: RootJsonFormat[GameInfo] = jsonFormat5(GameInfo)
+  implicit val gamesTableFormat: RootJsonFormat[Games] = jsonFormat4(Games)
+  implicit def paginatedResultFormat[T](implicit writeForT: JsonWriter[T]): RootJsonWriter[PaginatedResult[T]] = (obj: PaginatedResult[T]) =>
+    JsObject(
+      "entities" -> JsArray(obj.entities.map(_.toJson).toVector),
+      "Total_count" -> JsNumber(obj.totalCount)
+    )
+
 
 
   val route = concat(
@@ -40,11 +45,6 @@ object RequestHandler extends App {
                     HttpEntity(
                       ContentTypes.`application/json`,
                       result.toJson.prettyPrint
-//                      JsObject(
-//                        "game_id" -> JsNumber(result.id),
-//                        "game_name" -> JsString(result.name),
-//                        "description" -> JsString(result.description)
-//                      ).prettyPrint
                     )
                 )
               )
@@ -57,8 +57,8 @@ object RequestHandler extends App {
     },
     get {
       path("games") {
-        parameters("searchString") { (string) =>
-          onComplete(getTopFiveGames(string)) {
+        parameters("searchString", "offset".as[Int], "limit".as[Int]) { (string, offset, limit) =>
+          onComplete(getGames(string, offset, limit)) {
             case Success(res) =>
               complete(
                 HttpResponse(
@@ -76,17 +76,6 @@ object RequestHandler extends App {
         }
       }
     }
-
-    //                StatusCodes.OK,
-    //                JsObject(
-    //                  "game_id" -> JsNumber(result.id),
-    //                  "game_name" -> JsString(result.name),
-    //                  "description" -> JsString(result.description)
-    //                ).prettyPrint
-
-
-
-
 
   )
 

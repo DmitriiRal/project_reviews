@@ -13,8 +13,6 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 import spray.json._
 
-import scala.annotation.tailrec
-
 
 object Scraper extends App {
 
@@ -44,9 +42,6 @@ object Scraper extends App {
   val apps = getApps.flatMap(res => res.entity.toStrict(timeout))
     .map(x => x.data.utf8String.parseJson.convertTo[Vector[SteamGame]])
 
-//  val addToDb = apps.flatMap { x =>
-//    db.run(gamesQuery ++= x)
-//  }
 
   val addToDb2 = apps.flatMap(processSeq1)
 
@@ -97,8 +92,6 @@ object Scraper extends App {
 
 
 
-
-
 object TestDb extends App {
   implicit val system: ActorSystem[Any] = ActorSystem(Behaviors.empty, "SingleRequest")
   implicit val executionContext: ExecutionContextExecutor = system.executionContext
@@ -112,6 +105,3 @@ object TestDb extends App {
       println(res)
   }
 }
-
-
-//  def descendingOrder(num: Int): Int = num.toString.sorted.reverse.toInt

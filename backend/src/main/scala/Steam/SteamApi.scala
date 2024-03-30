@@ -39,20 +39,11 @@ object SteamApi {
   }
 
 
-//  def getSteamAppDetails2(steamId: Long): Future[Option[SteamAppDetail]] =
-//    Http().singleRequest(HttpRequest(uri =
-//        s"https://store.steampowered.com/api/appdetails?appids=$steamId"))
-//      .flatMap(res => res.entity.toStrict(1000.millis))
-//      .map(x =>
-//        x.data.utf8String.parseJson.convertTo
-//      )
-
-
-  def temporaryJsonParser(steamId: Long) =
-    Http().singleRequest(HttpRequest(uri =
-        s"https://store.steampowered.com/api/appdetails?appids=$steamId"))
-      .flatMap(res => res.entity.toStrict(1000.millis))
-      .map(x =>
-        x.data.utf8String.parseJson.asJsObject.fields(s"$steamId")
-          .asJsObject.fields("data").asJsObject)
+  //  def getSteamAppDetails2(steamId: Long): Future[Option[SteamAppDetail]] =
+  //    Http().singleRequest(HttpRequest(uri =
+  //        s"https://store.steampowered.com/api/appdetails?appids=$steamId"))
+  //      .flatMap(res => res.entity.toStrict(1000.millis))
+  //      .map(x =>
+  //        x.data.utf8String.parseJson.convertTo
+  //      )
 }
