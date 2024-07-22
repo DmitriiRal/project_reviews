@@ -5,5 +5,6 @@ case class SteamAppDetails(
                            detailedDescription: String,
                            headerImage: String,
                            steamId: Long,
-                           steamLink: String
-                       )
+                           steamLink: String,
+                           genres: List[String]
+                          )

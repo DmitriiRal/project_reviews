@@ -1,5 +1,5 @@
 import Connection.db
-import DataBaseRw.{Games, gamesQuery}
+import DataBaseRw.{Games, gamesQuery, Genres, genresQuery}
 import Steam.SteamApi.getSteamAppDetails
 import org.apache.pekko
 import pekko.actor.typed.ActorSystem
@@ -30,6 +30,7 @@ object Scraper extends App {
     }
   }
 
+  val timeout = 30000.millis
 
   implicit val system: ActorSystem[Any] = ActorSystem(Behaviors.empty, "SingleRequest")
   implicit val executionContext: ExecutionContextExecutor = system.executionContext
@@ -37,7 +38,6 @@ object Scraper extends App {
   val getApps: Future[HttpResponse] = Http().singleRequest(
     HttpRequest(uri = "https://api.steampowered.com/ISteamApps/GetAppList/v2/")
   )
-  val timeout = 1000.millis
 
   val apps = getApps.flatMap(res => res.entity.toStrict(timeout))
     .map(x => x.data.utf8String.parseJson.convertTo[Vector[SteamGame]])
@@ -54,9 +54,9 @@ object Scraper extends App {
     inner(0, vector)
   }
 
-  def processSeq2(vector: Vector[SteamGame]): Future[Int] = vector match {
-    case head +: tail => processItem(head).flatMap(_ => processSeq2(tail))
-  }
+//  def processSeq2(vector: Vector[SteamGame]): Future[Int] = vector match {
+//    case head +: tail => processItem(head).flatMap(_ => processSeq2(tail))
+//  }
 
   def processItem(steamGame: SteamGame): Future[Int] = {
     println(s"Processing steam game(${steamGame.appid}) ${steamGame.name}")
@@ -67,15 +67,47 @@ object Scraper extends App {
       case None =>
         println(s"Not found, creating")
         getSteamAppDetails(steamGame.appid).flatMap {
-          case Some(response) =>
-          db.run(
-            gamesQuery += Games(
-              id = 0L,
-              name = steamGame.name,
-              steamId = steamGame.appid,
-              capsuleImageV5 = response.headerImage
+          case Some(gameResponse) => {
+            val addGame = db.run(
+              gamesQuery += Games(
+                id = 0L,
+                name = steamGame.name,
+                steamId = gameResponse.steamId,
+                capsuleImageV5 = gameResponse.headerImage
+              )
             )
-          )
+            addGame
+              .flatMap {
+                // Getting a game ID in the database
+                x => db.run(gamesQuery.filter(_.steamId === steamGame.appid).result.headOption)
+                  .flatMap {
+                    dbResponse =>
+                      val listOfGenres = gameResponse.genres
+
+                      def runQuery(genreHead: String): Future[Int] = {
+                        db.run(
+                          genresQuery += Genres(
+                            id = 0L,
+                            gameID = dbResponse.head.id,
+                            genre = genreHead
+                          )
+                        )
+                      }
+                      def queryRec(genres: List[String]): Future[Int] = genres match {
+                        case head :: Nil =>
+                          runQuery(head)
+                        case head :: tail =>
+                          runQuery(head)
+                          queryRec(tail)
+                      }
+                      queryRec(listOfGenres)
+
+                  }
+              }
+
+
+
+          }
           case None => Future.successful(1)
         }
     }
@@ -96,7 +128,7 @@ object TestDb extends App {
   implicit val system: ActorSystem[Any] = ActorSystem(Behaviors.empty, "SingleRequest")
   implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
-  val test = db.run(gamesQuery.filter(_.steamId === 19034806546L).result.headOption)
+  val test = getSteamAppDetails(427520L)
 
   test.onComplete {
     case Success(res) =>
