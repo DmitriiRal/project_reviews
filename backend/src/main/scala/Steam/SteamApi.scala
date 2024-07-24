@@ -15,6 +15,29 @@ object SteamApi {
       val jsObject = value.asJsObject.fields(s"$steamId").asJsObject
       jsObject.getFields("success") match {
         case Seq(JsBoolean(true)) =>
+
+          def getGenres(vector: Vector[JsValue], list: List[String]): List[String] = { vector match {
+            case empty if vector.isEmpty => list
+            case head +: tail =>
+              val genre = head.asJsObject.getFields("description") match {
+                case Seq(JsString(oneGenre)) => oneGenre
+                }
+              getGenres(tail, genre :: list)
+          }}
+
+          def createClass(name: String, descr: String, pic: String, genre: Option[Vector[JsValue]]): Some[SteamAppDetails] = {
+            Some(
+              SteamAppDetails(
+                name,
+                descr,
+                pic,
+                steamId,
+                s"https://store.steampowered.com/api/appdetails?appids=$steamId",
+                if (genre.isEmpty) Nil else getGenres(genre.head, Nil)
+              )
+            )
+          }
+
           jsObject.fields("data").asJsObject
             .getFields(
               "name",
@@ -28,27 +51,14 @@ object SteamApi {
               JsString(picture),
               JsArray(genres)
             ) =>
-
-              def getGenres(vector: Vector[JsValue], list: List[String]): List[String] = { vector match {
-                case empty if vector.isEmpty => list
-                case head +: tail =>
-                  val genre = head.asJsObject.getFields("description") match {
-                    case Seq(JsString(oneGenre)) => oneGenre
-                  }
-
-                  getGenres(tail, genre :: list)
-                }}
-
-              Some(
-                SteamAppDetails(
-                  name,
-                  description,
-                  picture,
-                  steamId,
-                  s"https://store.steampowered.com/api/appdetails?appids=$steamId",
-                  getGenres(genres, Nil)
-                )
-              )
+              createClass(name, description, picture, Some(genres))
+            case Seq(
+            JsString(name),
+            JsString(description),
+            JsString(picture)
+            ) =>
+              println("This game has no genre")
+              createClass(name, description, picture, None)
             case _ => throw new Exception("Wrong fields")
           }
         case _ => None

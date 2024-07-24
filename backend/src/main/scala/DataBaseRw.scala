@@ -97,7 +97,6 @@ object DataBaseRw {
 
   def getGamesByGenres(genres: Seq[String], offset: Int = 0, limit: Int = 0) = Connection.db.run {
     for {
-      //gameList <- genresQuery.filter(_.genre.like(s"$genre%")).map(_.id).drop(offset).take(limit).result
       numberOfGamesFound <- genresQuery.filter(_.genre inSet genres).length.result
     } yield numberOfGamesFound
   }

@@ -13,7 +13,6 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 import spray.json._
 
-
 object Scraper extends App {
 
   case class SteamGame(appid: Long, name: String)
@@ -30,7 +29,7 @@ object Scraper extends App {
     }
   }
 
-  val timeout = 30000.millis
+  private val timeout = 60000.millis
 
   implicit val system: ActorSystem[Any] = ActorSystem(Behaviors.empty, "SingleRequest")
   implicit val executionContext: ExecutionContextExecutor = system.executionContext
@@ -41,7 +40,6 @@ object Scraper extends App {
 
   val apps = getApps.flatMap(res => res.entity.toStrict(timeout))
     .map(x => x.data.utf8String.parseJson.convertTo[Vector[SteamGame]])
-
 
   val addToDb2 = apps.flatMap(processSeq1)
 
@@ -54,65 +52,43 @@ object Scraper extends App {
     inner(0, vector)
   }
 
-//  def processSeq2(vector: Vector[SteamGame]): Future[Int] = vector match {
-//    case head +: tail => processItem(head).flatMap(_ => processSeq2(tail))
-//  }
-
-  def processItem(steamGame: SteamGame): Future[Int] = {
+  def processItem(steamGame: SteamGame): Future[Unit] = {
     println(s"Processing steam game(${steamGame.appid}) ${steamGame.name}")
     db.run(gamesQuery.filter(_.steamId === steamGame.appid).result.headOption).flatMap {
       case Some(_) =>
         println(s"Found a game, updating")
-        Future.successful(1)
+        Future.successful(())
       case None =>
         println(s"Not found, creating")
-        getSteamAppDetails(steamGame.appid).flatMap {
-          case Some(gameResponse) => {
-            val addGame = db.run(
-              gamesQuery += Games(
+
+        for {
+          gameDetails <- getSteamAppDetails(steamGame.appid)
+          gameIdInDb <- gameDetails match {
+            case Some(appDetails) => db.run {
+              gamesQuery returning gamesQuery.map(_.id) += Games(
                 id = 0L,
                 name = steamGame.name,
-                steamId = gameResponse.steamId,
-                capsuleImageV5 = gameResponse.headerImage
+                steamId = appDetails.steamId,
+                capsuleImageV5 = appDetails.headerImage
               )
-            )
-            addGame
-              .flatMap {
-                // Getting a game ID in the database
-                x => db.run(gamesQuery.filter(_.steamId === steamGame.appid).result.headOption)
-                  .flatMap {
-                    dbResponse =>
-                      val listOfGenres = gameResponse.genres
-
-                      def runQuery(genreHead: String): Future[Int] = {
-                        db.run(
-                          genresQuery += Genres(
-                            id = 0L,
-                            gameID = dbResponse.head.id,
-                            genre = genreHead
-                          )
-                        )
-                      }
-                      def queryRec(genres: List[String]): Future[Int] = genres match {
-                        case head :: Nil =>
-                          runQuery(head)
-                        case head :: tail =>
-                          runQuery(head)
-                          queryRec(tail)
-                      }
-                      queryRec(listOfGenres)
-
-                  }
-              }
-
-
-
+            }
+            case None => Future.successful(0L)
           }
-          case None => Future.successful(1)
-        }
+          gameAdded <- gameDetails match {
+            case Some(appDetails) => db.run {
+              genresQuery ++= appDetails.genres.map(listGenres =>
+                Genres(
+                  id = 0L,
+                  gameID = gameIdInDb,
+                  genre = listGenres
+                )
+              )
+            }
+            case None => Future.successful(0L)
+          }
+        } yield ()
     }
   }
-
 
   addToDb2.onComplete {
     case Success(res) =>
@@ -122,18 +98,3 @@ object Scraper extends App {
   }
 }
 
-
-
-object TestDb extends App {
-  implicit val system: ActorSystem[Any] = ActorSystem(Behaviors.empty, "SingleRequest")
-  implicit val executionContext: ExecutionContextExecutor = system.executionContext
-
-  val test = getSteamAppDetails(427520L)
-
-  test.onComplete {
-    case Success(res) =>
-      println(res)
-    case Failure(res) =>
-      println(res)
-  }
-}
