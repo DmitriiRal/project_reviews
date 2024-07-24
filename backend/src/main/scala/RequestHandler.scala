@@ -1,4 +1,4 @@
-import DataBaseRw.{Games, GamesTable, getGames}
+import DataBaseRw.{Games, GamesTable, getGames, getGamesByGenres}
 import GamesController.getGameById
 import org.apache.pekko
 import pekko.actor.typed.ActorSystem
@@ -12,11 +12,13 @@ import scala.io.StdIn
 import scala.util.{Failure, Success}
 import spray.json._
 
+import scala.concurrent.ExecutionContextExecutor
+
 
 object RequestHandler extends App {
 
-  implicit val system = ActorSystem(Behaviors.empty, "my-system")
-  implicit val executionContext = system.executionContext
+  implicit val system: ActorSystem[Any] = ActorSystem(Behaviors.empty, "my-system")
+  implicit val executionContext: ExecutionContextExecutor = system.executionContext
   implicit val gameInfoFormat: RootJsonFormat[GameInfo] = jsonFormat5(GameInfo)
   implicit val gamesTableFormat: RootJsonFormat[Games] = jsonFormat4(Games)
   implicit def paginatedResultFormat[T](implicit writeForT: JsonWriter[T]): RootJsonWriter[PaginatedResult[T]] = (obj: PaginatedResult[T]) =>
@@ -59,6 +61,27 @@ object RequestHandler extends App {
       path("games") {
         parameters("searchString", "offset".as[Int], "limit".as[Int]) { (string, offset, limit) =>
           onComplete(getGames(string, offset, limit)) {
+            case Success(res) =>
+              complete(
+                HttpResponse(
+                  headers = Seq(headers.`Access-Control-Allow-Origin`.*),
+                  entity =
+                    HttpEntity(
+                      ContentTypes.`application/json`,
+                      res.toJson.prettyPrint
+                    )
+                )
+              )
+            case Failure(res2) =>
+              complete((StatusCodes.Conflict, s"An error occurred: $res2"))
+          }
+        }
+      }
+    },
+    get {
+      path("genres") {
+        parameters("searchString") { (string) =>
+          onComplete(getGamesByGenres(string.split(",").toSeq)) {
             case Success(res) =>
               complete(
                 HttpResponse(

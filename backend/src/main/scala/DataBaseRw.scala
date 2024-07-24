@@ -31,6 +31,20 @@ object DataBaseRw {
   }
   val gamesQuery = TableQuery[GamesTable]
 
+  final case class Genres(
+                          id: Long,
+                          gameID: Long,
+                          genre: String
+                         )
+  class GenresTable(tag: Tag) extends Table[Genres](tag, Some("db_reviews"), "genres") {
+    def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+    def gameId = column[Long]("game_id")
+    def genre = column[String]("genre")
+    override def * = (id, gameId, genre) <> (Genres.tupled, Genres.unapply)
+    def game = foreignKey("game_FK", gameId, gamesQuery)(_.id)
+  }
+  val genresQuery = TableQuery[GenresTable]
+
 
   final case class Individuals(
                                 id: Long,
@@ -62,8 +76,11 @@ object DataBaseRw {
     def score = column[Short]("score")
     def createdAt = column[LocalDate]("created_at")
     override def * = (id, text, personId, gameId, score, createdAt) <> (Reviews.tupled, Reviews.unapply)
+    def individual = foreignKey("individual_FK", personId, individualsQuery)(_.id)
+    def game = foreignKey("game_FK", gameId, gamesQuery)(_.id)
   }
   val reviewsQuery = TableQuery[ReviewsTable]
+
 
   def getGame(gameId: Int): Future[Option[Games]] = {
     val query = gamesQuery.filter(w => w.id === gameId.toLong).result.headOption
@@ -71,21 +88,17 @@ object DataBaseRw {
     run
   }
 
-  def getTenGames(game: String): Future[Seq[Games]] = {
-    val query = gamesQuery.filter(w => w.name.like(s"$game%")).take(10).result
-    Connection.db.run(query)
-  }
-
-  def getGames2(game: String, offset: Int, limit: Int): Future[Seq[Games]] = {
-    val query = gamesQuery.filter(w => w.name.like(s"$game%")).drop(offset).take(limit).result
-    Connection.db.run(query)
-  }
-
   def getGames(game: String, offset: Int, limit: Int): Future[PaginatedResult[GamesTable#TableElementType]] = Connection.db.run {
     for {
       gameList <- gamesQuery.filter(_.name.like(s"$game%")).drop(offset).take(limit).result
       numberOfGamesFound <- gamesQuery.filter(_.name.like(s"$game%")).length.result
     } yield PaginatedResult(gameList, numberOfGamesFound)
+  }
+
+  def getGamesByGenres(genres: Seq[String], offset: Int = 0, limit: Int = 0) = Connection.db.run {
+    for {
+      numberOfGamesFound <- genresQuery.filter(_.genre inSet genres).length.result
+    } yield numberOfGamesFound
   }
 
 }
